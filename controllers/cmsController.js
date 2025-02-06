@@ -1,39 +1,59 @@
 const path = require("path");
 const multer = require("multer");
+const sharp = require("sharp");
 const Image = require("../models/Image");
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../uploads"));
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  },
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 module.exports = {
   uploadImages: (req, res) => {
     upload.array("images", 5)(req, res, async (err) => {
-      console.log("err: ", err);
       if (err) return res.status(500).send({ error: "Error uploading files" });
+
       if (!req.files || req.files.length === 0)
         return res.status(400).send({ error: "No files uploaded" });
-      const fileUrls = req.files.map((file) => {
-        return `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
-      });
-      const tags = req.body.tags || [];
+
       try {
-        const images = req.files.map((file) => ({
-          filename: file.filename,
-          url: `${req.protocol}://${req.get("host")}/uploads/${file.filename}`,
-          tags,
-        }));
-        await Image.insertMany(images);
+        const optimizedImages = await Promise.all(
+          req.files.map(async (file) => {
+            const uniqueFilename = `${Date.now()}-${file.originalname.replace(
+              /\.[^/.]+$/,
+              ".webp"
+            )}`;
+
+            // Optimize image in memory
+            const optimizedBuffer = await sharp(file.buffer)
+              .resize(800, 600)
+              .webp({ quality: 80 })
+              .toBuffer();
+
+            const outputFilePath = path.join(
+              __dirname,
+              "../uploads",
+              uniqueFilename
+            );
+
+            // Save optimized image to disk
+            require("fs").writeFileSync(outputFilePath, optimizedBuffer);
+
+            return {
+              filename: uniqueFilename,
+              url: `${req.protocol}://${req.get(
+                "host"
+              )}/uploads/${uniqueFilename}`,
+              tags: req.body.tags || [],
+            };
+          })
+        );
+
+        await Image.insertMany(optimizedImages);
+        const fileUrls = optimizedImages.map((image) => image.url);
+
         res
           .status(200)
           .send({ message: "Files uploaded successfully", fileUrls });
       } catch (error) {
-        res.status(500).send({ error: "Database error" });
+        console.error("Error optimizing images:", error);
+        res.status(500).send({ error: "Error optimizing images" });
       }
     });
   },
