@@ -2,8 +2,13 @@ const path = require("path");
 const multer = require("multer");
 const sharp = require("sharp");
 const Image = require("../models/Image");
+const fs = require("fs");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
+const UPLOADS_DIR = path.join(__dirname, "../uploads");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 module.exports = {
   uploadImages: (req, res) => {
     upload.array("images", 5)(req, res, async (err) => {
@@ -20,20 +25,15 @@ module.exports = {
               ".webp"
             )}`;
 
-            // Optimize image in memory
+            const outputFilePath = path.join(UPLOADS_DIR, uniqueFilename);
+
+            // Optimize image and save to disk
             const optimizedBuffer = await sharp(file.buffer)
               .resize(800, 600)
               .webp({ quality: 80 })
               .toBuffer();
 
-            const outputFilePath = path.join(
-              __dirname,
-              "../uploads",
-              uniqueFilename
-            );
-
-            // Save optimized image to disk
-            require("fs").writeFileSync(outputFilePath, optimizedBuffer);
+            fs.writeFileSync(outputFilePath, optimizedBuffer);
 
             return {
               filename: uniqueFilename,
