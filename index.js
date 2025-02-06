@@ -9,5 +9,5 @@ app.use(cors({ origin: "*" }));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "./uploads")));
 app.use("/cms", cmsRoutes);
-const PORT = 9001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
