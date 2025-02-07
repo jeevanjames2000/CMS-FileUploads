@@ -34,8 +34,8 @@ module.exports = {
             )}`;
             const outputFilePath = path.join(UPLOADS_DIR, uniqueFilename);
             const optimizedBuffer = await sharp(file.buffer)
-              .resize(800, 600)
-              .webp({ quality: 80 })
+              .resize(800, 600, { fit: "inside", withoutEnlargement: true })
+              .webp({ lossless: true, quality: 100 })
               .toBuffer();
             fs.writeFileSync(outputFilePath, optimizedBuffer);
             return {
