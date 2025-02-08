@@ -44,8 +44,7 @@ module.exports = {
               ".webp"
             )}`;
             const optimizedBuffer = await sharp(file.buffer)
-              .resize(800, 600, { fit: "inside", withoutEnlargement: true })
-              .webp({ lossless: true, quality: 100 })
+              .webp({ quality: 80 })
               .toBuffer();
             const params = {
               Bucket: bucketName,
@@ -55,7 +54,7 @@ module.exports = {
               ACL: "public-read",
             };
             await s3.send(new PutObjectCommand(params));
-            const s3Url = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/${uniqueFilename}`;
+            const s3Url = `https://${bucketName}.s3.amazonaws.com/uploads/${uniqueFilename}`;
             return {
               filename: uniqueFilename,
               url: s3Url,
