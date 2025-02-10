@@ -29,7 +29,6 @@ const checkS3Files = async () => {
   const { Contents } = await s3.send(command);
   console.log("Existing files in S3:", Contents);
 };
-// checkS3Files();
 module.exports = {
   uploadImages: (req, res) => {
     upload.array("images", 5)(req, res, async (err) => {
@@ -74,7 +73,7 @@ module.exports = {
       }
     });
   },
-  getImages: async (req, res) => {
+  getImagesS3: async (req, res) => {
     try {
       const command = new ListObjectsV2Command({
         Bucket: bucketName,
@@ -91,6 +90,19 @@ module.exports = {
     } catch (error) {
       console.error("Error fetching images from S3:", error);
       res.status(500).send({ error: "Error fetching images from S3" });
+    }
+  },
+  getImages: async (req, res) => {
+    try {
+      const images = await Image.find({}, "url");
+      if (!images || images.length === 0) {
+        return res.status(404).send({ message: "No images found." });
+      }
+      const imageUrls = images.map((image) => image.url);
+      res.status(200).send({ success: true, images: imageUrls });
+    } catch (error) {
+      console.error("Error fetching images from MongoDB:", error);
+      res.status(500).send({ error: "Internal server error" });
     }
   },
   deleteImage: async (req, res) => {
