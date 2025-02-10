@@ -43,7 +43,7 @@ module.exports = {
               ".webp"
             )}`;
             const optimizedBuffer = await sharp(file.buffer)
-              .webp({ quality: 80 })
+              .webp({ quality: 70 })
               .toBuffer();
             const params = {
               Bucket: bucketName,
