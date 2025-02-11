@@ -2,6 +2,7 @@ const path = require("path");
 const multer = require("multer");
 const sharp = require("sharp");
 const Image = require("../models/Image");
+const mongoose = require("mongoose");
 const fs = require("fs");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -99,6 +100,61 @@ module.exports = {
     } catch (error) {
       console.error("Error deleting images:", error);
       res.status(500).send({ error: "Error deleting images" });
+    }
+  },
+  uploadMongoImages: (req, res) => {
+    upload.array("images", 5)(req, res, async (err) => {
+      if (err) return res.status(500).json({ error: "Error uploading files" });
+      if (!req.files || req.files.length === 0)
+        return res.status(400).json({ error: "No files uploaded" });
+      try {
+        const savedImages = await Promise.all(
+          req.files.map(async (file) => {
+            const optimizedBuffer = await sharp(file.buffer)
+              .resize(800, 600, { fit: "inside", withoutEnlargement: true })
+              .webp({ quality: 90 })
+              .toBuffer();
+            const newImage = new Image({
+              filename: `${Date.now()}-${file.originalname.replace(
+                /\.[^/.]+$/,
+                ".webp"
+              )}`,
+              url: "",
+              image: {
+                data: optimizedBuffer,
+                contentType: "image/webp",
+              },
+              tags: req.body.tags || [],
+            });
+            await newImage.save();
+            return newImage._id;
+          })
+        );
+        res.status(200).json({
+          message: "Files uploaded successfully",
+          imageIds: savedImages,
+        });
+      } catch (error) {
+        console.error("Error processing images:", error);
+        res.status(500).json({ error: "Error processing images" });
+      }
+    });
+  },
+  getMongoImage: async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: "Invalid image ID" });
+      }
+      const image = await Image.findById(id);
+      if (!image) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+      res.set("Content-Type", image.image.contentType);
+      res.send(image.image.data);
+    } catch (error) {
+      console.error("Error fetching image:", error);
+      res.status(500).json({ error: "Error fetching image" });
     }
   },
 };
