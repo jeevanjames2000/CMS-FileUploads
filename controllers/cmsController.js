@@ -2,6 +2,7 @@ const path = require("path");
 const multer = require("multer");
 const sharp = require("sharp");
 const Image = require("../models/Image");
+const ImageArchive = require("../models/ImageArchive");
 const mongoose = require("mongoose");
 const fs = require("fs");
 const storage = multer.memoryStorage();
@@ -114,11 +115,12 @@ module.exports = {
               .resize(800, 600, { fit: "inside", withoutEnlargement: true })
               .webp({ quality: 90 })
               .toBuffer();
+            const filename = `${Date.now()}-${file.originalname.replace(
+              /\.[^/.]+$/,
+              ".webp"
+            )}`;
             const newImage = new Image({
-              filename: `${Date.now()}-${file.originalname.replace(
-                /\.[^/.]+$/,
-                ".webp"
-              )}`,
+              filename,
               url: "",
               image: {
                 data: optimizedBuffer,
@@ -127,6 +129,16 @@ module.exports = {
               tags: req.body.tags || [],
             });
             await newImage.save();
+            const newArchivedImage = new ImageArchive({
+              filename,
+              url: "",
+              image: {
+                data: optimizedBuffer,
+                contentType: "image/webp",
+              },
+              tags: req.body.tags || [],
+            });
+            await newArchivedImage.save();
             return newImage._id;
           })
         );
@@ -142,19 +154,22 @@ module.exports = {
   },
   getMongoImage: async (req, res) => {
     try {
-      const { id } = req.params;
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: "Invalid image ID" });
+      const archivedImages = await ImageArchive.find({}, "filename image");
+      if (!archivedImages || archivedImages.length === 0) {
+        return res.status(404).json({ error: "No archived images found" });
       }
-      const image = await Image.findById(id);
-      if (!image) {
-        return res.status(404).json({ error: "Image not found" });
-      }
-      res.set("Content-Type", image.image.contentType);
-      res.send(image.image.data);
+      const imagesWithBase64 = archivedImages.map((image) => ({
+        _id: image._id,
+        filename: image.filename,
+        contentType: image.image.contentType,
+        imageUrl: `data:${
+          image.image.contentType
+        };base64,${image.image.data.toString("base64")}`,
+      }));
+      res.status(200).json(imagesWithBase64);
     } catch (error) {
-      console.error("Error fetching image:", error);
-      res.status(500).json({ error: "Error fetching image" });
+      console.error("Error fetching archived images:", error);
+      res.status(500).json({ error: "Error fetching archived images" });
     }
   },
 };
