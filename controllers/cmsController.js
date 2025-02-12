@@ -3,6 +3,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const Image = require("../models/Image");
 const ImageArchive = require("../models/ImageArchive");
+const Video = require("../models/uploadCMS");
 const mongoose = require("mongoose");
 const fs = require("fs");
 const storage = multer.memoryStorage();
@@ -170,6 +171,34 @@ module.exports = {
     } catch (error) {
       console.error("Error fetching archived images:", error);
       res.status(500).json({ error: "Error fetching archived images" });
+    }
+  },
+  uploadCMS: async (req, res) => {
+    try {
+      const { youtubeId, name } = req.body;
+      const existingVideo = await Video.findOne({ name });
+      if (existingVideo) {
+        return res
+          .status(400)
+          .json({ message: "Order already exists. Choose another name." });
+      }
+      const newVideo = new Video({ youtubeId, name });
+      await newVideo.save();
+      res
+        .status(201)
+        .json({ message: "Video uploaded successfully", video: newVideo });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+  getCMS: async (req, res) => {
+    try {
+      const videos = await Video.find().sort({ createdAt: -1 });
+      res.status(200).json(videos);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 };

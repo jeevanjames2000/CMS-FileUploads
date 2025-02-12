@@ -9,5 +9,7 @@ router.post("/deleteImages", cmsController.deleteLocalImage);
 router.get("/getImage/:name", cmsController.getImage);
 router.get("/getAllImages", cmsController.getAllImages);
 router.get("/getMongoImages", cmsController.getMongoImage);
+router.post("/uploadCMS", cmsController.uploadCMS);
+router.get("/getCMS", cmsController.getCMS);
 
 module.exports = router;
