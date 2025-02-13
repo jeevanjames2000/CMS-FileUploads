@@ -11,5 +11,6 @@ router.get("/getAllImages", cmsController.getAllImages);
 router.get("/getMongoImages", cmsController.getMongoImage);
 router.post("/uploadCMS", cmsController.uploadCMS);
 router.get("/getCMS", cmsController.getCMS);
+router.post("/deleteYoutube", cmsController.deleteYoutube);
 
 module.exports = router;

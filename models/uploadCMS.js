@@ -3,6 +3,7 @@ const videoSchema = new mongoose.Schema(
   {
     youtubeId: { type: String, required: true },
     name: { type: String, required: true },
+    order: { type: Number, unique: true, sparse: true },
   },
   { timestamps: true }
 );

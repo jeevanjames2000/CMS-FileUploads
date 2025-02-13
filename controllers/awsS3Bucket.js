@@ -3,6 +3,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const dotenv = require("dotenv");
 const Image = require("../models/Image");
+const fs = require("fs");
 const {
   S3Client,
   PutObjectCommand,
@@ -19,7 +20,15 @@ const s3 = new S3Client({
   },
 });
 const bucketName = process.env.AWS_BUCKET_NAME;
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    const uniqueFilename = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueFilename);
+  },
+});
 const upload = multer({ storage });
 const checkS3Files = async () => {
   const command = new ListObjectsV2Command({
@@ -27,7 +36,6 @@ const checkS3Files = async () => {
     Prefix: "uploads/",
   });
   const { Contents } = await s3.send(command);
-  console.log("Existing files in S3:", Contents);
 };
 module.exports = {
   uploadImages: (req, res) => {
@@ -42,7 +50,7 @@ module.exports = {
               /\.[^/.]+$/,
               ".webp"
             )}`;
-            const optimizedBuffer = await sharp(file.buffer)
+            const optimizedBuffer = await sharp(file.path)
               .webp({ quality: 70 })
               .toBuffer();
             const params = {
@@ -53,6 +61,7 @@ module.exports = {
               ACL: "public-read",
             };
             await s3.send(new PutObjectCommand(params));
+            fs.unlinkSync(file.path);
             const s3Url = `https://${bucketName}.s3.amazonaws.com/uploads/${uniqueFilename}`;
             return {
               filename: uniqueFilename,
@@ -110,10 +119,10 @@ module.exports = {
       let { key } = req.params;
       key = decodeURIComponent(key);
       const s3Key = `uploads/${key}`;
-      console.log("Deleting key:", s3Key);
       await s3.send(
         new DeleteObjectCommand({ Bucket: bucketName, Key: s3Key })
       );
+      await Image.deleteOne({ filename: key });
       res.status(200).send({ message: "Image deleted successfully" });
     } catch (error) {
       console.error("Error deleting image from S3:", error);
@@ -126,13 +135,24 @@ module.exports = {
       if (!keys || !Array.isArray(keys)) {
         return res.status(400).send({ error: "Invalid request format" });
       }
+
       const objectsToDelete = keys.map((key) => ({ Key: key }));
-      await s3.send(
+
+      const response = await s3.send(
         new DeleteObjectsCommand({
           Bucket: bucketName,
           Delete: { Objects: objectsToDelete },
         })
       );
+
+      if (response.Errors && response.Errors.length > 0) {
+        console.error("Errors deleting objects:", response.Errors);
+        return res
+          .status(500)
+          .send({ error: "Partial failure deleting objects from S3" });
+      }
+
+      await Image.deleteMany({ filename: { $in: keys } });
       res.status(200).send({ message: "Images deleted successfully" });
     } catch (error) {
       console.error("Error deleting images from S3:", error);

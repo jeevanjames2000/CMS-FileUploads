@@ -18,7 +18,6 @@ const deleteLocalImage = (filename) => {
     if (err) {
       console.error("Error deleting image:", err);
     } else {
-      console.log(`Image ${filename} deleted successfully.`);
     }
   });
 };
@@ -180,9 +179,13 @@ module.exports = {
       if (existingVideo) {
         return res
           .status(400)
-          .json({ message: "Order already exists. Choose another name." });
+          .json({ message: "File already exists. Choose another File." });
       }
-      const newVideo = new Video({ youtubeId, name });
+      const lastVideo = await Video.findOne().sort({ order: -1 });
+      const lastOrder =
+        lastVideo && !isNaN(lastVideo.order) ? lastVideo.order : 0;
+      const newOrder = lastOrder + 1;
+      const newVideo = new Video({ youtubeId, name, order: newOrder });
       await newVideo.save();
       res
         .status(201)
@@ -199,6 +202,30 @@ module.exports = {
     } catch (error) {
       console.error("Error fetching videos:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  },
+  deleteYoutube: async (req, res) => {
+    const { youtubeIds } = req.body;
+    if (!youtubeIds || youtubeIds.length === 0) {
+      return res.status(400).send({ error: "No filenames provided." });
+    }
+    try {
+      const deleteResult = await Video.deleteMany({
+        youtubeId: { $in: youtubeIds },
+      });
+      if (deleteResult.deletedCount === 0) {
+        return res
+          .status(404)
+          .send({ message: "No matching videos found for deletion." });
+      }
+      res.status(200).send({
+        message: "Videos deleted successfully",
+        deletedCount: deleteResult.deletedCount,
+        deletedFiles: youtubeIds,
+      });
+    } catch (error) {
+      console.error("Error deleting videos:", error);
+      res.status(500).send({ error: "Error deleting videos" });
     }
   },
 };
