@@ -7,6 +7,6 @@ router.post("/uploadImage", AWSS3.uploadImages);
 router.get("/getImages", AWSS3.getImages);
 router.get("/getImagesS3", AWSS3.getImagesS3);
 router.delete("/deleteImages", AWSS3.deleteBulkImages);
-router.delete("/deleteImage/:key", AWSS3.deleteImage);
+router.delete("/deleteImage", AWSS3.deleteImage);
 
 module.exports = router;

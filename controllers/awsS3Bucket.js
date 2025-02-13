@@ -116,13 +116,15 @@ module.exports = {
   },
   deleteImage: async (req, res) => {
     try {
-      let { key } = req.params;
+      let { key } = req.body;
       key = decodeURIComponent(key);
-      const s3Key = `uploads/${key}`;
+      const keyParts = key.split("/");
+      const extractedKey = keyParts[keyParts.length - 1];
+      const s3Key = `uploads/${extractedKey}`;
       await s3.send(
         new DeleteObjectCommand({ Bucket: bucketName, Key: s3Key })
       );
-      await Image.deleteOne({ filename: key });
+      await Image.deleteOne({ filename: extractedKey });
       res.status(200).send({ message: "Image deleted successfully" });
     } catch (error) {
       console.error("Error deleting image from S3:", error);
@@ -135,23 +137,19 @@ module.exports = {
       if (!keys || !Array.isArray(keys)) {
         return res.status(400).send({ error: "Invalid request format" });
       }
-
       const objectsToDelete = keys.map((key) => ({ Key: key }));
-
       const response = await s3.send(
         new DeleteObjectsCommand({
           Bucket: bucketName,
           Delete: { Objects: objectsToDelete },
         })
       );
-
       if (response.Errors && response.Errors.length > 0) {
         console.error("Errors deleting objects:", response.Errors);
         return res
           .status(500)
           .send({ error: "Partial failure deleting objects from S3" });
       }
-
       await Image.deleteMany({ filename: { $in: keys } });
       res.status(200).send({ message: "Images deleted successfully" });
     } catch (error) {
