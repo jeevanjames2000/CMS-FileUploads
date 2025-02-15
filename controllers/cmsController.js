@@ -21,6 +21,12 @@ const deleteLocalImage = (filename) => {
     }
   });
 };
+const extractYouTubeId = (url) => {
+  const match = url.match(
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+  );
+  return match ? match[1] : null;
+};
 module.exports = {
   uploadImages: (req, res) => {
     upload.array("images", 5)(req, res, async (err) => {
@@ -174,19 +180,28 @@ module.exports = {
   },
   uploadCMS: async (req, res) => {
     try {
-      const { youtubeId, name } = req.body;
+      let { youtubeId, name } = req.body;
+      youtubeId = extractYouTubeId(youtubeId);
+
+      if (!youtubeId) {
+        return res.status(400).json({ message: "Invalid YouTube URL" });
+      }
+
       const existingVideo = await Video.findOne({ name });
       if (existingVideo) {
         return res
           .status(400)
           .json({ message: "File already exists. Choose another File." });
       }
+
       const lastVideo = await Video.findOne().sort({ order: -1 });
       const lastOrder =
         lastVideo && !isNaN(lastVideo.order) ? lastVideo.order : 0;
       const newOrder = lastOrder + 1;
+
       const newVideo = new Video({ youtubeId, name, order: newOrder });
       await newVideo.save();
+
       res
         .status(201)
         .json({ message: "Video uploaded successfully", video: newVideo });
