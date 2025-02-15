@@ -187,7 +187,7 @@ module.exports = {
         return res.status(400).json({ message: "Invalid YouTube URL" });
       }
 
-      const existingVideo = await Video.findOne({ name, youtubeId });
+      const existingVideo = await Video.findOne({ youtubeId });
       if (existingVideo) {
         return res
           .status(400)
